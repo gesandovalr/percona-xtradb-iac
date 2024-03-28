@@ -1,0 +1,12 @@
+var_group:
+  percona_node_01_ip_address: "192.168.30.105"
+  percona_node_02_ip_address: "192.168.30.106"
+  percona_node_03_ip_address: "192.168.30.107"
+  percona_node_01_hostname: "mynode01.example.local"
+  percona_node_02_hostname: "mynode02.example.local"
+  percona_node_03_hostname: "mynode03.example.local"
+  percona_node_01_short_name: "mynode01"
+  percona_node_02_short_name: "mynode02"
+  percona_node_03_short_name: "mynode03"
+  wsrep_cluster_name: "mycluprd01"
+  vault_url_ip_address: "192.168.30.103"

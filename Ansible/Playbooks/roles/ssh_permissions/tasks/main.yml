@@ -1,0 +1,76 @@
+---
+  - name: SSH dir creation
+    become: true
+    become_user: myusr
+    shell: mkdir -p /home/myusr/.ssh
+    register: result
+  - debug:
+      msg: "{{ result.stdout }}"
+
+  - name: Change file ownership for SSH keys
+    ansible.builtin.file:
+      path: "/home/myusr/.ssh"
+      owner: myusr
+      group: myusr
+      mode: '700'
+      recurse: yes
+  
+  - name: SSH dir creation
+    become: true
+    become_user: myusr
+    shell: touch /home/myusr/.ssh/authorized_keys
+    register: result
+  - debug:
+      msg: "{{ result.stdout }}"
+  
+  - name: Change file ownership for SSH keys
+    ansible.builtin.file:
+      path: "/home/myusr/.ssh/authorized_keys"
+      owner: myusr
+      group: myusr
+      mode: '600'
+ 
+  - name: Set up multiple authorized keys myusr
+    ansible.posix.authorized_key:
+      user: myusr
+      state: present
+      key: '{{ item }}'
+    with_file:
+      - files/pub-keys/mysuperpubkey.pub
+  
+  - name: Add J2 template for sshd config file
+    template:
+      src: templates/sshd_config.j2
+      dest: "/etc/ssh/sshd_config"
+  
+  - name: Change file ownership for sshd_config
+    ansible.builtin.file:
+      path: "/etc/ssh/sshd_config"
+      owner: root
+      group: root
+      mode: '600'
+  
+  - name: Apply new SELinux file context to sshd_config
+    shell: restorecon -v /etc/ssh/sshd_config
+    register: result
+  - debug:
+      msg: "{{ result.stdout }}"
+
+  - name: Allow the myusr user to run any commands as root with sudo -u root
+    community.general.sudoers:
+      name: myusr-do-as-root
+      state: present
+      user: myusr
+      runas: root
+      commands: ALL 
+ 
+  - name: Apply new SELinux file context to sshd_config
+    command: restorecon -v /etc/ssh/sshd_config
+    register: result
+  - debug:
+      msg: "{{ result.stdout }}"
+
+  - name: Restart service sshd for all servers.
+    ansible.builtin.service:
+      name: sshd
+      state: restarted
