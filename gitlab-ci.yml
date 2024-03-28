@@ -1,0 +1,90 @@
+# This file is a template, and might need editing before it works on your project.
+# To contribute improvements to CI/CD templates, please follow the Development guide at:
+# https://docs.gitlab.com/ee/development/cicd/templates.html
+# This specific template is located at:
+# https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Terraform.gitlab-ci.yml
+
+include:
+  - template: Terraform/Base.gitlab-ci.yml  # https://gitlab.com/gitlab-org/gitlab/blob/master/lib/gitlab/ci/templates/Terraform/Base.latest.gitlab-ci.yml
+
+variables:
+  TF_ROOT: ${CI_PROJECT_DIR}/Terraform
+  ANS_LAUNCH: 17
+    
+cache:
+  key: "$CI_COMMIT_REF_NAME"
+  paths:
+  - ${TF_ROOT}/.terraform
+
+before_script:
+  - cd ${TF_ROOT}
+  - rm -rf .terraform
+  - terraform --version
+  - terraform init
+  
+stages:
+  - prepare
+  - init
+  - validate
+  - testing
+  - build
+  - deploy
+  - post_terraform_run
+  - cleanup_cache_job
+
+init:
+  stage: prepare
+  environment:
+    name: development
+  script:
+    - terraform init
+
+validate:
+  stage: validate
+  environment:
+    name: development
+  script:
+    - terraform validate
+
+testing:
+  stage: testing
+  environment:
+    name: development
+  script:
+    - cd ${CI_PROJECT_DIR}
+    - sonar-scanner -Dproject.settings=sonar-project.properties
+
+plan:
+  stage: build
+  environment:
+    name: development
+  script:
+    - terraform plan
+    - terraform plan -json
+  artifacts:
+    name: plan
+    paths:
+      - ${TF_ROOT}/plan.cache
+    reports:
+      terraform: ${TF_ROOT}/plan.json
+
+apply:
+  stage: deploy
+  environment:
+    name: development
+  script:
+    - terraform apply -auto-approve
+
+post_terraform_run:
+  when: delayed
+  start_in: 60 seconds
+  stage: post_terraform_run
+  script:
+    - 'curl -k -H "Authorization: Bearer $PAT_TOKEN_AWX" -H "Content-Type: application/json" -X POST -d "{}" http://myawx:30800/api/v2/job_templates/ANS_LAUNCH/launch/ | jq'
+
+cleanup:
+  stage: cleanup_cache_job
+  script:
+    - echo "Cleaning up cache project"
+    - rm -rf "%CACHE_PATH%/%CI_PIPELINE_ID%"
+  when: always
